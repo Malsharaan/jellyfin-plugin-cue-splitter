@@ -128,6 +128,82 @@ public class CueParserTests
         Assert.Null(sheet.TotalDiscs);
     }
 
+    // EAC "gaps appended" (non-compliant) sheet of a split rip: the INDEX 00 of a track is at the
+    // end of the previous file, its INDEX 01 right after the next FILE line.
+    private const string EacNonCompliantSplit = """
+        PERFORMER "Jacques Brel"
+        TITLE "Grand Jacques"
+        FILE "01 Grand Jacques.flac" WAVE
+          TRACK 01 AUDIO
+            TITLE "Grand Jacques"
+            INDEX 01 00:00:00
+          TRACK 02 AUDIO
+            TITLE "La haine"
+            INDEX 00 02:28:40
+        FILE "02 La haine.flac" WAVE
+            INDEX 01 00:00:00
+          TRACK 03 AUDIO
+            TITLE "Il y a"
+            INDEX 00 02:41:10
+        FILE "03 Il y a.flac" WAVE
+            INDEX 01 00:00:00
+          TRACK 04 AUDIO
+            TITLE "Le diable"
+        FILE "04 Le diable.flac" WAVE
+            INDEX 01 00:00:00
+        """;
+
+    [Fact]
+    public void Parse_EacNonCompliant_AttachesTracksToTheFileOfTheirIndex01()
+    {
+        var sheet = CueParser.Parse(EacNonCompliantSplit);
+
+        Assert.Equal(4, sheet.Files.Count);
+        for (var i = 0; i < 4; i++)
+        {
+            var track = Assert.Single(sheet.Files[i].Tracks);
+            Assert.Equal(i + 1, track.Number);
+            Assert.Equal(0, track.StartFrame);
+        }
+
+        // The pregap of track 2 lived in file 01: it is not an index of track 2 in file 02.
+        Assert.False(sheet.Files[1].Tracks[0].Indexes.ContainsKey(0));
+        Assert.Equal("La haine", sheet.Files[1].Tracks[0].Title);
+        Assert.True(CueLibraryService.IsAlreadySplit(sheet));
+    }
+
+    [Fact]
+    public void Parse_EacCompliantSplit_PregapStaysInOwnFile()
+    {
+        // "Gaps left out" / compliant: each file starts with the pregap, INDEX 01 later in the same file.
+        var sheet = CueParser.Parse("FILE \"01.flac\" WAVE\n TRACK 01 AUDIO\n INDEX 01 00:00:00\nFILE \"02.flac\" WAVE\n TRACK 02 AUDIO\n INDEX 00 00:00:00\n INDEX 01 00:02:00");
+        Assert.Single(sheet.Files[1].Tracks);
+        Assert.Equal(150, sheet.Files[1].Tracks[0].StartFrame);
+        Assert.True(CueLibraryService.IsAlreadySplit(sheet));
+    }
+
+    [Fact]
+    public void IsAlreadySplit_FalseForImagesIncludingMultiDiscSheets()
+    {
+        var single = CueParser.Parse("FILE \"img.flac\" WAVE\n TRACK 01 AUDIO\n INDEX 01 00:00:00\n TRACK 02 AUDIO\n INDEX 00 03:00:00\n INDEX 01 03:02:00");
+        Assert.False(CueLibraryService.IsAlreadySplit(single));
+
+        var twoDiscs = CueParser.Parse(
+            "FILE \"cd1.flac\" WAVE\n TRACK 01 AUDIO\n INDEX 01 00:00:00\n TRACK 02 AUDIO\n INDEX 01 04:00:00\n" +
+            "FILE \"cd2.flac\" WAVE\n TRACK 03 AUDIO\n INDEX 01 00:00:00\n TRACK 04 AUDIO\n INDEX 01 05:00:00");
+        Assert.Equal(2, twoDiscs.Files[0].Tracks.Count);
+        Assert.Equal(2, twoDiscs.Files[1].Tracks.Count);
+        Assert.False(CueLibraryService.IsAlreadySplit(twoDiscs));
+    }
+
+    [Fact]
+    public void IsAlreadySplit_OneFilePerTrackEvenWithOddIndexes()
+    {
+        // Hidden track one audio: track 1 starts after a pregap in its own file.
+        var sheet = CueParser.Parse("FILE \"01.flac\" WAVE\n TRACK 01 AUDIO\n INDEX 00 00:00:00\n INDEX 01 00:32:00\nFILE \"02.flac\" WAVE\n TRACK 02 AUDIO\n INDEX 01 00:00:00");
+        Assert.True(CueLibraryService.IsAlreadySplit(sheet));
+    }
+
     [Fact]
     public void Parse_SkipsDataTracksFlagging()
     {

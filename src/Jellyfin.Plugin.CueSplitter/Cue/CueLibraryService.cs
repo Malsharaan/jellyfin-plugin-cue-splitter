@@ -170,19 +170,14 @@ public class CueLibraryService
     {
         var sheet = CueParser.ParseFile(cuePath);
 
-        var filesWithAudio = sheet.Files
-            .Select(f => (File: f, Tracks: f.Tracks.Where(t => t.IsAudio && t.StartFrame.HasValue).ToList()))
-            .Where(x => x.Tracks.Count > 0)
-            .ToList();
-
+        var filesWithAudio = GetAudioFiles(sheet);
         if (filesWithAudio.Count == 0)
         {
             _logger.LogDebug("{Cue} has no audio track", cuePath);
             return null;
         }
 
-        // A sheet describing already split files (one track per file, starting at 0) needs nothing.
-        if (filesWithAudio.All(x => x.Tracks.Count == 1 && x.Tracks[0].StartFrame == 0))
+        if (IsAlreadySplit(sheet))
         {
             _logger.LogDebug("{Cue} describes already split files, skipping", cuePath);
             return null;
@@ -203,6 +198,15 @@ public class CueLibraryService
             if (format is null)
             {
                 _logger.LogWarning("{Cue}: cannot read audio format of {Source}", cuePath, source);
+                continue;
+            }
+
+            // A track starting beyond the end of the file means the sheet does not describe this
+            // file (wrong file resolved, or a sheet left over from another rip): leave it alone.
+            var lastStart = format.FramesToSamples(fileTracks[^1].StartFrame!.Value);
+            if (lastStart >= format.TotalSamples)
+            {
+                _logger.LogWarning("{Cue}: track {Track} starts after the end of {Source}; the sheet does not match this file, skipping it", cuePath, fileTracks[^1].Number, source);
                 continue;
             }
 
@@ -247,6 +251,45 @@ public class CueLibraryService
         }
 
         return new CueAlbum(cuePath, sheet, tracks);
+    }
+
+    /// <summary>
+    /// Gets the FILE entries of a sheet that contain audio tracks, with those tracks.
+    /// </summary>
+    /// <param name="sheet">The sheet.</param>
+    /// <returns>Files and their audio tracks.</returns>
+    internal static List<(CueFile File, List<CueTrack> Tracks)> GetAudioFiles(CueSheet sheet)
+    {
+        return sheet.Files
+            .Select(f => (File: f, Tracks: f.Tracks.Where(t => t.IsAudio && t.StartFrame.HasValue).ToList()))
+            .Where(x => x.Tracks.Count > 0)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether a sheet describes files that are already split
+    /// (one file per track), in which case there is nothing to do.
+    /// </summary>
+    /// <param name="sheet">The sheet.</param>
+    /// <returns>True if already split.</returns>
+    internal static bool IsAlreadySplit(CueSheet sheet)
+    {
+        var files = GetAudioFiles(sheet);
+        if (files.Count == 0)
+        {
+            return false;
+        }
+
+        // Every file holds exactly one track starting at its beginning.
+        if (files.All(x => x.Tracks.Count == 1 && x.Tracks[0].StartFrame == 0))
+        {
+            return true;
+        }
+
+        // Safety net: several files and as many files as tracks is a split rip, whatever the
+        // indexes say (pregaps, HTOA, non-standard sheets). An image never looks like this.
+        var trackCount = files.Sum(x => x.Tracks.Count);
+        return sheet.Files.Count > 1 && sheet.Files.Count >= trackCount;
     }
 
     /// <summary>

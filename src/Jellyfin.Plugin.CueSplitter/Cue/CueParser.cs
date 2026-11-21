@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace Jellyfin.Plugin.CueSplitter.Cue;
@@ -71,6 +72,8 @@ public static class CueParser
         var sheet = new CueSheet();
         CueFile? currentFile = null;
         CueTrack? currentTrack = null;
+        var tracks = new List<(CueTrack Track, CueFile DeclaredIn)>();
+        var indexFiles = new Dictionary<CueTrack, Dictionary<int, CueFile>>();
 
         using var reader = new StringReader(text);
         string? line;
@@ -165,9 +168,11 @@ public static class CueParser
                             fileName = tokens[1];
                         }
 
+                        // A FILE line does not end the current track: in "gaps appended" sheets (EAC
+                        // non-compliant mode), a track's INDEX 00 sits at the end of the previous file
+                        // and its INDEX 01 comes right after the next FILE line.
                         currentFile = new CueFile(fileName.Trim(), fileType);
                         sheet.Files.Add(currentFile);
-                        currentTrack = null;
                     }
 
                     break;
@@ -177,24 +182,52 @@ public static class CueParser
                         && int.TryParse(tokens[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
                     {
                         currentTrack = new CueTrack(number, tokens.Count >= 3 ? tokens[2] : "AUDIO");
-                        currentFile.Tracks.Add(currentTrack);
+                        tracks.Add((currentTrack, currentFile));
+                        indexFiles[currentTrack] = new Dictionary<int, CueFile>();
                     }
 
                     break;
 
                 case "INDEX":
-                    if (currentTrack is not null && tokens.Count >= 3
+                    if (currentTrack is not null && currentFile is not null && tokens.Count >= 3
                         && int.TryParse(tokens[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var indexNumber)
                         && TryParseTime(tokens[2], out var frames))
                     {
                         currentTrack.Indexes[indexNumber] = frames;
+                        indexFiles[currentTrack][indexNumber] = currentFile;
                     }
 
                     break;
             }
         }
 
+        AssignTracksToFiles(tracks, indexFiles);
         return sheet;
+    }
+
+    /// <summary>
+    /// Attaches every track to the file that holds its start (INDEX 01, else its first index),
+    /// which is not always the file under which its TRACK line was written. Indexes located in
+    /// another file (a pregap at the end of the previous file) are dropped from the track.
+    /// </summary>
+    private static void AssignTracksToFiles(List<(CueTrack Track, CueFile DeclaredIn)> tracks, Dictionary<CueTrack, Dictionary<int, CueFile>> indexFiles)
+    {
+        foreach (var (track, declaredIn) in tracks)
+        {
+            var files = indexFiles[track];
+            var startIndex = track.Indexes.ContainsKey(1) ? 1 : (track.Indexes.Count > 0 ? track.Indexes.Keys.First() : -1);
+            var file = startIndex >= 0 && files.TryGetValue(startIndex, out var f) ? f : declaredIn;
+
+            foreach (var index in track.Indexes.Keys.ToList())
+            {
+                if (files.TryGetValue(index, out var indexFile) && !ReferenceEquals(indexFile, file))
+                {
+                    track.Indexes.Remove(index);
+                }
+            }
+
+            file.Tracks.Add(track);
+        }
     }
 
     /// <summary>
