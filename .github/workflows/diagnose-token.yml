@@ -1,0 +1,17 @@
+name: Diagnose token (temporary)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect CLAUDE_CODE_OAUTH_TOKEN shape (never prints the token)
+        env:
+          T: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          echo "length: ${#T}"
+          echo "prefix: ${T:0:13}"
+          case "$T" in *[[:space:]]*) echo "contains whitespace/newline: yes";; *) echo "contains whitespace/newline: no";; esac
+          case "$T" in sk-ant-oat01-*) echo "type: OAuth token (claude setup-token)";; sk-ant-api03-*) echo "type: API key (console.anthropic.com)";; *) echo "type: unknown";; esac
