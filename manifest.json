@@ -8,6 +8,14 @@
     "category": "Music",
     "versions": [
       {
+        "version": "1.0.4.0",
+        "changelog": "Fix: CUE tracks failed with a source error in apps that play or download through Jellyfin's original-file routes (/Items/{id}/File, /Items/{id}/Download), such as Finamp. These routes now serve the track as a seekable WAV stream.",
+        "targetAbi": "12.4.0.0",
+        "sourceUrl": "https://github.com/Malsharaan/jellyfin-plugin-cue-splitter/releases/download/v1.0.4.0/cue-splitter_1.0.4.0.zip",
+        "checksum": "ef4fb1368255f6b08299876e8bfbb344",
+        "timestamp": "2026-11-21T12:19:13Z"
+      },
+      {
         "version": "1.0.3.0",
         "changelog": "Fix: albums already split into one file per track whose .cue sheet uses the EAC non-compliant (gaps appended) layout had most of their tracks hidden. Tracks are now attached to the file holding their INDEX 01, and sheets with one file per track are never treated as album images.",
         "targetAbi": "12.4.0.0",
