@@ -122,6 +122,16 @@ Changes apply after the next library scan, or after running *Dashboard → Sched
 - If you edit a `.cue` file, the change is picked up at the next library scan (or by the scheduled task). Real-time folder monitoring alone does not trigger it.
 - If you change the server port, the next sync updates the tracks. Their ids, and so play counts and favorites, are kept.
 
+## Reporting bugs
+
+Open an [issue](https://github.com/Malsharaan/jellyfin-plugin-cue-splitter/issues). Please include:
+- your Jellyfin version and OS;
+- the `.cue` sheet (attach it);
+- the codec of the audio image;
+- the relevant lines of the Jellyfin log (search for `CueSplitter`).
+
+Issues are triaged by the maintainer. Fixes may be prepared by an automated assistant (Claude Code), but always as a pull request that the maintainer reviews and tests before any release.
+
 ## Development
 
 ```

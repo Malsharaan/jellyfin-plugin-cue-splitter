@@ -1,0 +1,54 @@
+name: Claude
+
+# Runs Claude Code on issues and pull requests, only when the repository owner
+# mentions @claude. Issues opened by anyone else are never processed
+# automatically: the owner decides what gets handled by commenting "@claude ...".
+# Claude works on a branch and proposes a pull request; it never merges or releases.
+
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  claude:
+    if: >
+      github.actor == 'Malsharaan' && (
+        (github.event_name == 'issues' && (contains(github.event.issue.title, '@claude') || contains(github.event.issue.body, '@claude'))) ||
+        (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude')) ||
+        (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude'))
+      )
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Install ffmpeg (for manual checks against real audio)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          # Set ONE of these repository secrets (Settings > Secrets and variables > Actions).
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: >-
+            --max-turns 60
+            --allowedTools "Bash(dotnet build:*),Bash(dotnet test:*),Bash(dotnet restore:*),Bash(ffmpeg:*),Bash(ffprobe:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(ls:*),Bash(cat:*),Bash(grep:*),Bash(find:*),Read,Edit,Write,Glob,Grep"
