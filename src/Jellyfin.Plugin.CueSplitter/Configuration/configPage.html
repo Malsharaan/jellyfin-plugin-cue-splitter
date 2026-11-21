@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>CUE Splitter</title>
+</head>
+<body>
+    <div id="CueSplitterConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+        <div data-role="content">
+            <div class="content-primary">
+                <form id="CueSplitterConfigForm">
+                    <div class="verticalSection verticalSection-extrabottompadding">
+                        <div class="sectionTitleContainer flex align-items-center">
+                            <h2 class="sectionTitle">CUE Splitter</h2>
+                        </div>
+                        <p>
+                            Albums stored as a single audio image (FLAC, APE, WavPack, WAV...) with a <code>.cue</code> sheet
+                            are shown as individual tracks. The original file is never modified: each track is decoded on the fly
+                            from the image, sample-accurately, when it is played.
+                        </p>
+                        <p>Changes are applied by the next library scan, or by running the "Synchronize CUE tracks" scheduled task.</p>
+                    </div>
+
+                    <div class="checkboxContainer checkboxContainer-withDescription">
+                        <label class="emby-checkbox-label">
+                            <input id="HideSourceFiles" name="HideSourceFiles" type="checkbox" is="emby-checkbox" />
+                            <span>Hide the original album image</span>
+                        </label>
+                        <div class="fieldDescription checkboxFieldDescription">
+                            When enabled, the single-file image described by a CUE sheet is hidden and only its tracks are listed.
+                        </div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="InternalBaseUrl">Internal server URL (advanced)</label>
+                        <input id="InternalBaseUrl" name="InternalBaseUrl" type="text" is="emby-input" placeholder="automatic, e.g. http://127.0.0.1:8096" />
+                        <div class="fieldDescription">
+                            URL the server uses to read its own track streams. Leave empty unless the server does not listen on the loopback interface.
+                        </div>
+                    </div>
+
+                    <div>
+                        <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                            <span>Save</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var CueSplitterConfig = {
+                pluginUniqueId: 'ad5ffba7-aeea-42e5-a9fe-e3f8e8daaf4c'
+            };
+
+            document.querySelector('#CueSplitterConfigPage')
+                .addEventListener('pageshow', function () {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(CueSplitterConfig.pluginUniqueId).then(function (config) {
+                        document.querySelector('#HideSourceFiles').checked = config.HideSourceFiles;
+                        document.querySelector('#InternalBaseUrl').value = config.InternalBaseUrl || '';
+                        Dashboard.hideLoadingMsg();
+                    });
+                });
+
+            document.querySelector('#CueSplitterConfigForm')
+                .addEventListener('submit', function (e) {
+                    Dashboard.showLoadingMsg();
+                    ApiClient.getPluginConfiguration(CueSplitterConfig.pluginUniqueId).then(function (config) {
+                        config.HideSourceFiles = document.querySelector('#HideSourceFiles').checked;
+                        config.InternalBaseUrl = document.querySelector('#InternalBaseUrl').value.trim();
+                        ApiClient.updatePluginConfiguration(CueSplitterConfig.pluginUniqueId, config).then(function (result) {
+                            Dashboard.processPluginConfigurationUpdateResult(result);
+                        });
+                    });
+                    e.preventDefault();
+                    return false;
+                });
+        </script>
+    </div>
+</body>
+</html>

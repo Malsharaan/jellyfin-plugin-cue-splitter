@@ -1,0 +1,17 @@
+---
+name: "CUE Splitter"
+guid: "ad5ffba7-aeea-42e5-a9fe-e3f8e8daaf4c"
+version: "1.0.0.0"
+targetAbi: "12.4.0.0"
+framework: "net10.0"
+overview: "Virtual tracks from CUE sheets"
+description: >
+  Shows the tracks of single-file album images (FLAC, APE, WavPack, WAV...)
+  described by a .cue sheet as individual songs, without splitting or modifying
+  the original file. Tracks are decoded on the fly, sample-accurately.
+category: "Music"
+owner: "CueSplitter"
+artifacts:
+  - "Jellyfin.Plugin.CueSplitter.dll"
+changelog: >
+  Initial release.
