@@ -72,6 +72,14 @@ public class StreamingTests
     }
 
     [Fact]
+    public void GetDownloadFileName_IsNumberedAndSafe()
+    {
+        var format = new AudioFormat(44100, 2, 16, 1000, "flac");
+        var track = new Jellyfin.Plugin.CueSplitter.Cue.CueTrackPlan(3, "03", "AC/DC: Live? \"Yes\"", null, null, "x.flac", 0, 10, format);
+        Assert.Equal("03 - AC_DC_ Live_ _Yes_.wav", CueTrackHttpResponder.GetDownloadFileName(track));
+    }
+
+    [Fact]
     public void BuildArguments_NoSeekAtStart()
     {
         var args = CueTrackStreamer.BuildArguments("in.flac", new AudioFormat(44100, 2, 16, 0, "flac"), 0, 100);

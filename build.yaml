@@ -1,7 +1,7 @@
 ---
 name: "CUE Splitter"
 guid: "ad5ffba7-aeea-42e5-a9fe-e3f8e8daaf4c"
-version: "1.0.3.0"
+version: "1.0.4.0"
 targetAbi: "12.4.0.0"
 framework: "net10.0"
 overview: "Virtual tracks from CUE sheets"
@@ -14,7 +14,6 @@ owner: "Malsharaan"
 artifacts:
   - "Jellyfin.Plugin.CueSplitter.dll"
 changelog: >
-  Fix: albums already split into one file per track whose .cue sheet uses the EAC
-  non-compliant (gaps appended) layout had most of their tracks hidden. Tracks are now
-  attached to the file holding their INDEX 01, and sheets with one file per track are
-  never treated as album images.
+  Fix: CUE tracks failed with a source error in apps that play or download through
+  Jellyfin's original-file routes (/Items/{id}/File, /Items/{id}/Download), such as Finamp.
+  These routes now serve the track as a seekable WAV stream.

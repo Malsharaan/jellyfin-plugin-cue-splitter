@@ -1,8 +1,10 @@
+using Jellyfin.Plugin.CueSplitter.Api;
 using Jellyfin.Plugin.CueSplitter.Cue;
 using Jellyfin.Plugin.CueSplitter.Library;
 using Jellyfin.Plugin.CueSplitter.Streaming;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Jellyfin.Plugin.CueSplitter;
@@ -19,5 +21,8 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<CueLibraryService>();
         serviceCollection.AddSingleton<CueTrackSynchronizer>();
         serviceCollection.AddSingleton<CueTrackStreamer>();
+
+        // Serve virtual tracks on Jellyfin's /Items/{id}/File and /Items/{id}/Download routes.
+        serviceCollection.Configure<MvcOptions>(options => options.Filters.Add<CueLibraryFileFilter>());
     }
 }

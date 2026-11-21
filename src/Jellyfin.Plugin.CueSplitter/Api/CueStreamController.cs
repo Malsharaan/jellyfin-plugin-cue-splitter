@@ -81,46 +81,7 @@ public class CueStreamController : ControllerBase
             return;
         }
 
-        var total = CueTrackStreamer.GetTotalLength(track);
-        Response.Headers.AcceptRanges = "bytes";
-        Response.ContentType = "audio/wav";
-
-        var result = ByteRange.TryParse(Request.Headers.Range.ToString(), total, out var range);
-        if (result == RangeParseResult.Unsatisfiable)
-        {
-            Response.StatusCode = StatusCodes.Status416RangeNotSatisfiable;
-            Response.Headers.ContentRange = string.Create(CultureInfo.InvariantCulture, $"bytes */{total}");
-            return;
-        }
-
-        if (result == RangeParseResult.Partial)
-        {
-            Response.StatusCode = StatusCodes.Status206PartialContent;
-            Response.Headers.ContentRange = string.Create(CultureInfo.InvariantCulture, $"bytes {range.Start}-{range.End}/{total}");
-        }
-        else
-        {
-            Response.StatusCode = StatusCodes.Status200OK;
-        }
-
-        Response.ContentLength = range.Length;
-        if (HttpMethods.IsHead(Request.Method))
-        {
-            return;
-        }
-
-        try
-        {
-            await _streamer.WriteRangeAsync(track, range, Response.Body, HttpContext.RequestAborted).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // Client went away (seek, stop, next track).
-        }
-        catch (System.IO.IOException ex)
-        {
-            _logger.LogDebug(ex, "Stream of {Item} interrupted", itemId);
-        }
+        await CueTrackHttpResponder.WriteAsync(HttpContext, _streamer, track, null, _logger).ConfigureAwait(false);
     }
 
     private static bool IsLocalRequest(HttpContext context)
