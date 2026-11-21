@@ -32,8 +32,11 @@ if ($LASTEXITCODE -ne 0) { throw "Build failed" }
 $outDir = Join-Path $root "src\Jellyfin.Plugin.CueSplitter\bin\Release\net10.0"
 $pluginDir = Join-Path $DataDir "plugins\CUE Splitter_$version"
 
+$trayExe = Join-Path (Split-Path -Parent $JellyfinExe) "jellyfin-windows-tray\Jellyfin.Windows.Tray.exe"
+$useTray = (Get-Process Jellyfin.Windows.Tray -ErrorAction SilentlyContinue) -and (Test-Path $trayExe)
+
 Write-Host "Stopping Jellyfin..."
-Get-Process jellyfin -ErrorAction SilentlyContinue | Stop-Process -Force
+Get-Process Jellyfin.Windows.Tray, jellyfin -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 2
 
 # Remove other installed versions of this plugin.
@@ -60,8 +63,14 @@ $meta = [ordered]@{
 }
 $meta | ConvertTo-Json | Set-Content (Join-Path $pluginDir "meta.json") -Encoding utf8
 
-Write-Host "Starting Jellyfin..."
-Start-Process -FilePath $JellyfinExe -ArgumentList "--datadir `"$DataDir`"" -WindowStyle Hidden
+if ($useTray) {
+    # Restart through the tray app so that its icon keeps controlling the server.
+    Write-Host "Starting Jellyfin through the tray app..."
+    Start-Process -FilePath $trayExe
+} else {
+    Write-Host "Starting Jellyfin..."
+    Start-Process -FilePath $JellyfinExe -ArgumentList "--datadir `"$DataDir`"" -WindowStyle Hidden
+}
 
 $deadline = (Get-Date).AddMinutes(2)
 while ((Get-Date) -lt $deadline) {
