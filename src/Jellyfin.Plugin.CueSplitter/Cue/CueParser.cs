@@ -249,9 +249,20 @@ public static class CueParser
 
                 break;
             case "DISCNUMBER":
-                if (track is null && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var disc))
+                if (track is null)
                 {
-                    sheet.DiscNumber = disc;
+                    // Accept "N" as well as "N/M" (disc N of M).
+                    var parts = value.Split('/', 2);
+                    if (int.TryParse(parts[0].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var disc))
+                    {
+                        sheet.DiscNumber = disc;
+                        if (parts.Length == 2
+                            && int.TryParse(parts[1].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var slashTotal))
+                        {
+                            // An explicit REM TOTALDISCS (before or after) takes precedence.
+                            sheet.TotalDiscs ??= slashTotal;
+                        }
+                    }
                 }
 
                 break;
