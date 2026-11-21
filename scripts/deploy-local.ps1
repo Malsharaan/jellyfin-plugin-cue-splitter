@@ -58,7 +58,9 @@ $meta = [ordered]@{
     timestamp   = (Get-Date).ToUniversalTime().ToString("o")
     version     = $version
     status      = "Active"
-    autoUpdate  = $false
+    # Keep Jellyfin's automatic plugin updates: a newer release published to the
+    # repository replaces this local build (an equal or older one never does).
+    autoUpdate  = $true
     assemblies  = @("Jellyfin.Plugin.CueSplitter.dll")
 }
 $meta | ConvertTo-Json | Set-Content (Join-Path $pluginDir "meta.json") -Encoding utf8
