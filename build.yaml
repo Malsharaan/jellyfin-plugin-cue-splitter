@@ -1,7 +1,7 @@
 ---
 name: "CUE Splitter"
 guid: "ad5ffba7-aeea-42e5-a9fe-e3f8e8daaf4c"
-version: "1.0.0.0"
+version: "1.0.1.0"
 targetAbi: "12.4.0.0"
 framework: "net10.0"
 overview: "Virtual tracks from CUE sheets"
@@ -14,4 +14,4 @@ owner: "Malsharaan"
 artifacts:
   - "Jellyfin.Plugin.CueSplitter.dll"
 changelog: >
-  Initial release.
+  Uninstalling the plugin now removes its virtual tracks from the library.
