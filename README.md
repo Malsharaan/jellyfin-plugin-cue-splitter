@@ -121,6 +121,24 @@ Changes apply after the next library scan, or after running *Dashboard → Sched
 - Media info for a virtual track reports the stream that is served (PCM WAV), not the codec of the image.
 - If you edit a `.cue` file, the change is picked up at the next library scan (or by the scheduled task). Real-time folder monitoring alone does not trigger it.
 - If you change the server port, the next sync updates the tracks. Their ids, and so play counts and favorites, are kept.
+- Jellyfin reports virtual tracks as not downloadable, because no real file backs them. Some apps, including the official ones, may therefore hide their "Download" button. A download still works when an app requests it (`/Items/{id}/Download` returns the track as a `.wav` file).
+- Hiding an album image removes it from the library. Play counts and favorites recorded on the image itself are lost; they are not transferred to its tracks.
+
+## Client compatibility
+
+The plugin works with any app that plays through Jellyfin's streaming API:
+- direct stream, transcoding and HLS (`/Audio/...`);
+- the "original file" routes `/Items/{id}/File` and `/Items/{id}/Download` (since 1.0.4.0).
+
+Tested apps:
+
+| App | Platform | Status | Notes |
+|---|---|---|---|
+| Jellyfin (official app) | Android | ✅ Works | Playback and seeking |
+| [Jellify](https://github.com/Jellify-Music/App) | Android | ✅ Works | |
+| [Finamp](https://github.com/jmshrv/finamp) 1.0.2 | Android | ✅ Works since 1.0.4.0 | Plays through `/Items/{id}/File`; earlier versions of the plugin gave a "source error" |
+
+If you use an app that is not listed, a report (working or not) in the [issues](https://github.com/Malsharaan/jellyfin-plugin-cue-splitter/issues) is welcome.
 
 ## Reporting bugs
 
