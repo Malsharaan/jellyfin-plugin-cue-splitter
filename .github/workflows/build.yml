@@ -68,6 +68,8 @@ jobs:
       - name: Update repository manifest
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
+          # actions/checkout replaces annotated tags by lightweight ones: fetch the real tag object.
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
           CHANGELOG="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '/^-----BEGIN/,$d')"
           [ -z "$CHANGELOG" ] && CHANGELOG="Release $GITHUB_REF_NAME"
           git fetch origin main

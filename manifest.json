@@ -9,11 +9,11 @@
     "versions": [
       {
         "version": "1.0.0.0",
-        "changelog": "Publish as a Jellyfin plugin repository\n\n- Release workflow: on a vX.Y.Z.W tag, build with that version, attach\n  the zip to a GitHub release and add the version (URL, MD5 checksum,\n  targetAbi) to manifest.json on main\n- scripts/update_manifest.py to maintain the repository manifest\n- Delete the virtual tracks when the plugin is uninstalled, since\n  Jellyfin only removes file-backed items by itself\n- README: installation through the plugin repository, manual install,\n  uninstall and release procedure\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>",
+        "changelog": "Initial release: virtual tracks from CUE sheets (FLAC, APE, WavPack...), sample-accurate on-the-fly decoding, seekable streams.",
         "targetAbi": "12.4.0.0",
         "sourceUrl": "https://github.com/Malsharaan/jellyfin-plugin-cue-splitter/releases/download/v1.0.0.0/cue-splitter_1.0.0.0.zip",
         "checksum": "8000bed7a23832eca92f59b34aa1f0a9",
-        "timestamp": "2026-11-21T07:45:53Z"
+        "timestamp": "11/21/2026 07:45:53"
       }
     ]
   }
