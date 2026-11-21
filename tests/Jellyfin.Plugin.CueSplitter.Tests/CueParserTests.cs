@@ -92,6 +92,42 @@ public class CueParserTests
         Assert.Equal(2, sheet.Files[0].Tracks.Count);
     }
 
+    private const string DiscBody = "\nFILE image.flac WAVE\n TRACK 1 AUDIO\n INDEX 01 00:00:00";
+
+    [Fact]
+    public void Parse_DiscNumberWithSlash_SetsDiscAndTotal()
+    {
+        var sheet = CueParser.Parse("REM DISCNUMBER \"1/2\"" + DiscBody);
+        Assert.Equal(1, sheet.DiscNumber);
+        Assert.Equal(2, sheet.TotalDiscs);
+    }
+
+    [Theory]
+    [InlineData("REM DISCNUMBER \"1/2\"\nREM TOTALDISCS 3")]
+    [InlineData("REM TOTALDISCS 3\nREM DISCNUMBER \"1/2\"")]
+    public void Parse_ExplicitTotalDiscsWinsOverSlashValue(string header)
+    {
+        var sheet = CueParser.Parse(header + DiscBody);
+        Assert.Equal(1, sheet.DiscNumber);
+        Assert.Equal(3, sheet.TotalDiscs);
+    }
+
+    [Fact]
+    public void Parse_PlainDiscNumber_StillWorks()
+    {
+        var sheet = CueParser.Parse("REM DISCNUMBER 1" + DiscBody);
+        Assert.Equal(1, sheet.DiscNumber);
+        Assert.Null(sheet.TotalDiscs);
+    }
+
+    [Fact]
+    public void Parse_InvalidDiscNumber_IsIgnored()
+    {
+        var sheet = CueParser.Parse("REM DISCNUMBER abc" + DiscBody);
+        Assert.Null(sheet.DiscNumber);
+        Assert.Null(sheet.TotalDiscs);
+    }
+
     [Fact]
     public void Parse_SkipsDataTracksFlagging()
     {
