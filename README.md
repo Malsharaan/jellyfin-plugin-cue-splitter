@@ -135,6 +135,7 @@ Tested apps:
 | App | Platform | Status | Notes |
 |---|---|---|---|
 | Jellyfin (official app) | Android | ✅ Works | Playback and seeking |
+| Jellyfin Web 12.4 | Browser (Chromium) | ✅ Works | Album view, playback, seeking, next track |
 | [Jellify](https://github.com/Jellify-Music/App) | Android | ✅ Works | |
 | [Finamp](https://github.com/jmshrv/finamp) 1.0.2 | Android | ✅ Works since 1.0.4.0 | Plays through `/Items/{id}/File`; earlier versions of the plugin gave a "source error" |
 
