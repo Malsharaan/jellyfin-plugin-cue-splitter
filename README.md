@@ -45,11 +45,51 @@ The internal endpoint only answers requests coming from the server itself and ca
 
 ## Installation
 
-### From a release
+### Option 1: plugin repository (recommended)
 
-1. Download `cue-splitter.zip` from the Releases page.
-2. Extract `Jellyfin.Plugin.CueSplitter.dll` into a new folder `plugins/CUE Splitter_1.0.0.0/` of your Jellyfin data directory (for example `C:\ProgramData\Jellyfin\Server\plugins\` on Windows, or `/var/lib/jellyfin/plugins/` on Linux).
+Adding the repository lets Jellyfin install the plugin from its catalog and notify you of updates.
+
+1. In Jellyfin, open **Dashboard → Plugins**, then the **Repositories** tab (called *Manage repositories* in some versions).
+2. Click **+** (Add) and enter:
+   - **Repository name**: `CUE Splitter`
+   - **Repository URL**:
+     ```
+     https://raw.githubusercontent.com/Malsharaan/jellyfin-plugin-cue-splitter/main/manifest.json
+     ```
+3. Save, then go to the **Catalog** tab. **CUE Splitter** is listed under the *Music* category.
+4. Open it, choose the latest version and click **Install**.
+5. **Restart Jellyfin.** On Windows, use the tray icon's *Restart* or restart the service. With Docker, run `docker restart jellyfin`. On Linux, run `sudo systemctl restart jellyfin`.
+6. Run a library scan: **Dashboard → Libraries → Scan All Libraries**. Albums with a `.cue` sheet then show their individual tracks.
+
+Updates appear in **Dashboard → Plugins** when a new version is published. Install them, then restart Jellyfin.
+
+### Option 2: manual install from a release
+
+1. Download `cue-splitter_<version>.zip` from the [Releases](https://github.com/Malsharaan/jellyfin-plugin-cue-splitter/releases) page.
+2. Extract `Jellyfin.Plugin.CueSplitter.dll` into a new folder `CUE Splitter_<version>` inside the `plugins` folder of your Jellyfin data directory:
+   - Windows: `C:\ProgramData\Jellyfin\Server\plugins\`
+   - Linux (package): `/var/lib/jellyfin/plugins/`
+   - Docker: `/config/plugins/` inside the container
 3. Restart Jellyfin, then scan your music library.
+
+### Uninstall
+
+Go to **Dashboard → Plugins → CUE Splitter → Uninstall**. The plugin deletes its virtual tracks from the library. Your audio files are never touched. Then restart Jellyfin and run a library scan: the original album images reappear as single tracks.
+
+### Publishing a new version (maintainers)
+
+1. Bump `version` in `build.yaml` (four-part, e.g. `1.1.0.0`) and commit.
+2. Tag and push with a changelog message:
+   ```bash
+   git tag -a v1.1.0.0 -m "What changed"
+   git push origin v1.1.0.0
+   ```
+3. The CI then:
+   - builds and tests the plugin;
+   - attaches `cue-splitter_1.1.0.0.zip` to a GitHub release;
+   - adds the version to `manifest.json` (URL, MD5 checksum, targetAbi) on `main`.
+
+   Servers that use the repository see the update automatically.
 
 ### From source (Windows, local server)
 

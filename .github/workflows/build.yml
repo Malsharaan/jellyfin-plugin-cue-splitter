@@ -6,35 +6,82 @@ on:
     tags: ["v*"]
   pull_request:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
 
+      - name: Compute version
+        id: meta
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="$(grep -E '^version:' build.yaml | sed -E 's/.*"([0-9.]+)".*/\1/')"
+          fi
+          TARGET_ABI="$(grep -E '^targetAbi:' build.yaml | sed -E 's/.*"([0-9.]+)".*/\1/')"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "targetAbi=$TARGET_ABI" >> "$GITHUB_OUTPUT"
+          echo "Version $VERSION, targetAbi $TARGET_ABI"
+
       - name: Test
         run: dotnet test --configuration Release
 
       - name: Publish
-        run: dotnet publish src/Jellyfin.Plugin.CueSplitter/Jellyfin.Plugin.CueSplitter.csproj --configuration Release --output artifacts/publish
+        run: >
+          dotnet publish src/Jellyfin.Plugin.CueSplitter/Jellyfin.Plugin.CueSplitter.csproj
+          --configuration Release --output artifacts/publish
+          -p:AssemblyVersion=${{ steps.meta.outputs.version }}
+          -p:FileVersion=${{ steps.meta.outputs.version }}
 
       - name: Package
+        id: package
         run: |
+          ZIP="cue-splitter_${{ steps.meta.outputs.version }}.zip"
           mkdir -p artifacts/zip
           cp artifacts/publish/Jellyfin.Plugin.CueSplitter.dll artifacts/zip/
-          cd artifacts/zip && zip ../cue-splitter.zip *
+          cd artifacts/zip && zip "../$ZIP" ./* && cd ../..
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+          echo "checksum=$(md5sum "artifacts/$ZIP" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         with:
           name: cue-splitter
-          path: artifacts/cue-splitter.zip
+          path: artifacts/${{ steps.package.outputs.zip }}
 
       - name: Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/cue-splitter.zip
+          files: artifacts/${{ steps.package.outputs.zip }}
+
+      - name: Update repository manifest
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          CHANGELOG="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '/^-----BEGIN/,$d')"
+          [ -z "$CHANGELOG" ] && CHANGELOG="Release $GITHUB_REF_NAME"
+          git fetch origin main
+          git checkout -B main origin/main
+          python3 scripts/update_manifest.py \
+            --manifest manifest.json \
+            --version "${{ steps.meta.outputs.version }}" \
+            --target-abi "${{ steps.meta.outputs.targetAbi }}" \
+            --source-url "https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}/${{ steps.package.outputs.zip }}" \
+            --checksum "${{ steps.package.outputs.checksum }}" \
+            --timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --changelog "$CHANGELOG"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add manifest.json
+          git commit -m "Update manifest for $GITHUB_REF_NAME [skip ci]"
+          git push origin main

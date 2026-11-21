@@ -10,7 +10,7 @@ description: >
   described by a .cue sheet as individual songs, without splitting or modifying
   the original file. Tracks are decoded on the fly, sample-accurately.
 category: "Music"
-owner: "CueSplitter"
+owner: "Malsharaan"
 artifacts:
   - "Jellyfin.Plugin.CueSplitter.dll"
 changelog: >
