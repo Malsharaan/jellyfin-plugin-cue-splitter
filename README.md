@@ -142,6 +142,7 @@ Tested apps:
 | Jellyfin Web 12.4 | Browser (Chromium) | ✅ Works | Album view, playback, seeking, next track |
 | [Jellify](https://github.com/Jellify-Music/App) | Android | ✅ Works | |
 | [Finamp](https://github.com/jmshrv/finamp) 1.0.2 | Android | ✅ Works since 1.0.4.0 | Plays through `/Items/{id}/File`; earlier versions of the plugin gave a "source error" |
+| [Wholphin](https://github.com/damontecres/Wholphin) | Android TV | ✅ Works since 1.0.5.0 | Needs the default FLAC format: with WAV, Wholphin's universal stream request is transcoded to a format it cannot play ([damontecres/Wholphin#2266](https://github.com/damontecres/Wholphin/issues/2266)) |
 
 If you use an app that is not listed, a report (working or not) in the [issues](https://github.com/Malsharaan/jellyfin-plugin-cue-splitter/issues) is welcome.
 
