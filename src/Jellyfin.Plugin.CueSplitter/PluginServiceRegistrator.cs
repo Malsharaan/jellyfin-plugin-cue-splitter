@@ -21,6 +21,8 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<CueLibraryService>();
         serviceCollection.AddSingleton<CueTrackSynchronizer>();
         serviceCollection.AddSingleton<CueTrackStreamer>();
+        serviceCollection.AddSingleton<FlacTrackCache>();
+        serviceCollection.AddSingleton<CueTrackServer>();
 
         // Serve virtual tracks on Jellyfin's /Items/{id}/File and /Items/{id}/Download routes.
         serviceCollection.Configure<MvcOptions>(options => options.Filters.Add<CueLibraryFileFilter>());

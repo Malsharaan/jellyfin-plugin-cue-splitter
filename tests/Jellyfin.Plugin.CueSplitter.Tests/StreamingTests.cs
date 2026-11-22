@@ -76,7 +76,62 @@ public class StreamingTests
     {
         var format = new AudioFormat(44100, 2, 16, 1000, "flac");
         var track = new Jellyfin.Plugin.CueSplitter.Cue.CueTrackPlan(3, "03", "AC/DC: Live? \"Yes\"", null, null, "x.flac", 0, 10, format);
-        Assert.Equal("03 - AC_DC_ Live_ _Yes_.wav", CueTrackHttpResponder.GetDownloadFileName(track));
+        Assert.Equal("03 - AC_DC_ Live_ _Yes_.wav", CueTrackServer.GetDownloadFileName(track, TrackFormat.Wav));
+        Assert.Equal("03 - AC_DC_ Live_ _Yes_.flac", CueTrackServer.GetDownloadFileName(track, TrackFormat.Flac));
+    }
+
+    private static Jellyfin.Plugin.CueSplitter.Cue.CueTrackPlan Plan(int bits, long start, long end, string source = "img.ape")
+        => new(2, "02", "Dreams", "Quench", null, source, start, end, new AudioFormat(44100, 2, bits, 50_000_000, "ape"));
+
+    [Fact]
+    public void FlacArguments_ExactSampleCountAndSeek()
+    {
+        var tags = new Dictionary<string, string> { ["TITLE"] = "Dreams", ["ARTIST"] = "Quench", ["ALBUM"] = "" };
+        var args = FlacTrackCache.BuildArguments(Plan(16, 16787988, 16787988 + 18710748), tags, "out.flac");
+
+        Assert.Equal("380.680000", args[Array.IndexOf(args, "-ss") + 1]);
+        Assert.Contains("atrim=end_sample=18710748,apad=whole_len=18710748", args);
+        Assert.Equal("flac", args[Array.IndexOf(args, "-c:a") + 1]);
+        Assert.Equal("s16", args[Array.IndexOf(args, "-sample_fmt") + 1]);
+        Assert.Contains("TITLE=Dreams", args);
+        Assert.Contains("ARTIST=Quench", args);
+        Assert.DoesNotContain("ALBUM=", args);
+        Assert.Equal("out.flac", args[^1]);
+    }
+
+    [Fact]
+    public void FlacArguments_HighResKeepsBitDepth()
+    {
+        var args = FlacTrackCache.BuildArguments(Plan(24, 0, 1000), new Dictionary<string, string>(), "o.flac");
+        Assert.DoesNotContain("-ss", args);
+        Assert.Equal("s32", args[Array.IndexOf(args, "-sample_fmt") + 1]);
+        Assert.Equal("24", args[Array.IndexOf(args, "-bits_per_raw_sample") + 1]);
+    }
+
+    [Fact]
+    public void CacheKey_ChangesWithTrackBoundaries()
+    {
+        var a = FlacTrackCache.GetCacheKey(Plan(16, 0, 1000));
+        Assert.Equal(a, FlacTrackCache.GetCacheKey(Plan(16, 0, 1000)));
+        Assert.NotEqual(a, FlacTrackCache.GetCacheKey(Plan(16, 0, 1001)));
+        Assert.NotEqual(a, FlacTrackCache.GetCacheKey(Plan(16, 0, 1000, "other.ape")));
+        Assert.Equal(32, a.Length);
+    }
+
+    [Fact]
+    public void Eviction_RemovesLeastRecentlyUsedUntilUnderBudget()
+    {
+        var now = DateTime.UtcNow;
+        var files = new[]
+        {
+            ("new", 40L, now),
+            ("old", 40L, now.AddDays(-3)),
+            ("mid", 40L, now.AddDays(-1)),
+            ("just-created", 40L, now.AddDays(-10))
+        };
+
+        Assert.Equal(new[] { "old", "mid" }, FlacTrackCache.SelectEvictions(files, 90, keep: "just-created"));
+        Assert.Empty(FlacTrackCache.SelectEvictions(files, 1000, keep: null));
     }
 
     [Fact]

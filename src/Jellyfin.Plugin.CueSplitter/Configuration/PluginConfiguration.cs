@@ -23,4 +23,17 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Gets or sets the secret key embedded in the internal stream URLs.
     /// </summary>
     public string StreamKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the format the virtual tracks are served in: "Flac" (default) or "Wav".
+    /// FLAC is played directly by virtually every client and uses about half the bandwidth;
+    /// each track is encoded once on first play and kept in a disk cache.
+    /// WAV needs no cache but some clients (e.g. Wholphin) only play it through transcoding.
+    /// </summary>
+    public string StreamFormat { get; set; } = "Flac";
+
+    /// <summary>
+    /// Gets or sets the maximum size of the FLAC track cache, in megabytes.
+    /// </summary>
+    public int CacheSizeMb { get; set; } = 2048;
 }

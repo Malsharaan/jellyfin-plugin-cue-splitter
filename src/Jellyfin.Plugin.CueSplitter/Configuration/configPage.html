@@ -5,7 +5,7 @@
     <title>CUE Splitter</title>
 </head>
 <body>
-    <div id="CueSplitterConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox">
+    <div id="CueSplitterConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button,emby-checkbox,emby-select">
         <div data-role="content">
             <div class="content-primary">
                 <form id="CueSplitterConfigForm">
@@ -28,6 +28,28 @@
                         </label>
                         <div class="fieldDescription checkboxFieldDescription">
                             When enabled, the single-file image described by a CUE sheet is hidden and only its tracks are listed.
+                        </div>
+                    </div>
+
+                    <div class="selectContainer">
+                        <label class="selectLabel" for="StreamFormat">Track format</label>
+                        <select is="emby-select" id="StreamFormat" name="StreamFormat" class="emby-select-withcolor emby-select">
+                            <option value="Flac">FLAC (recommended)</option>
+                            <option value="Wav">WAV</option>
+                        </select>
+                        <div class="fieldDescription">
+                            FLAC is played directly by virtually every app and uses about half the bandwidth of WAV, with the same lossless quality.
+                            Each track is encoded once, the first time it is played, and kept in a cache. WAV needs no cache, but some apps
+                            (e.g. Wholphin) can only play it through transcoding. Changing the format applies after the next library scan.
+                        </div>
+                    </div>
+
+                    <div class="inputContainer">
+                        <label class="inputLabel inputLabelUnfocused" for="CacheSizeMb">FLAC cache size (MB)</label>
+                        <input id="CacheSizeMb" name="CacheSizeMb" type="number" is="emby-input" min="100" step="100" />
+                        <div class="fieldDescription">
+                            Maximum disk space for encoded tracks, in Jellyfin's cache directory. The least recently played tracks are removed first.
+                            A CD-quality track takes about 25–40 MB.
                         </div>
                     </div>
 
@@ -58,6 +80,8 @@
                     ApiClient.getPluginConfiguration(CueSplitterConfig.pluginUniqueId).then(function (config) {
                         document.querySelector('#HideSourceFiles').checked = config.HideSourceFiles;
                         document.querySelector('#InternalBaseUrl').value = config.InternalBaseUrl || '';
+                        document.querySelector('#StreamFormat').value = config.StreamFormat === 'Wav' ? 'Wav' : 'Flac';
+                        document.querySelector('#CacheSizeMb').value = config.CacheSizeMb || 2048;
                         Dashboard.hideLoadingMsg();
                     });
                 });
@@ -68,6 +92,8 @@
                     ApiClient.getPluginConfiguration(CueSplitterConfig.pluginUniqueId).then(function (config) {
                         config.HideSourceFiles = document.querySelector('#HideSourceFiles').checked;
                         config.InternalBaseUrl = document.querySelector('#InternalBaseUrl').value.trim();
+                        config.StreamFormat = document.querySelector('#StreamFormat').value;
+                        config.CacheSizeMb = parseInt(document.querySelector('#CacheSizeMb').value, 10) || 2048;
                         ApiClient.updatePluginConfiguration(CueSplitterConfig.pluginUniqueId, config).then(function (result) {
                             Dashboard.processPluginConfigurationUpdateResult(result);
                         });

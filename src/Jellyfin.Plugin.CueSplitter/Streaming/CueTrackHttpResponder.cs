@@ -75,25 +75,4 @@ public static class CueTrackHttpResponder
             logger.LogDebug(ex, "Stream of track {Key} of {Cue} interrupted", track.Key, track.SourcePath);
         }
     }
-
-    /// <summary>
-    /// Builds a download file name for a track, e.g. "03 - Running The City.wav".
-    /// </summary>
-    /// <param name="track">The track.</param>
-    /// <returns>A file name safe on common file systems.</returns>
-    public static string GetDownloadFileName(CueTrackPlan track)
-    {
-        var name = string.Create(CultureInfo.InvariantCulture, $"{track.TrackNumber:D2} - {track.Title}.wav");
-        foreach (var c in Path.GetInvalidFileNameChars())
-        {
-            name = name.Replace(c, '_');
-        }
-
-        foreach (var c in new[] { '<', '>', ':', '"', '/', '\\', '|', '?', '*' })
-        {
-            name = name.Replace(c, '_');
-        }
-
-        return name;
-    }
 }

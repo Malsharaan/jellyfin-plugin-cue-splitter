@@ -14,7 +14,7 @@ A Jellyfin plugin that shows albums stored as a **single audio image + `.cue` sh
  Music/Space - Deliverance/
  ├── Space - Deliverance.flac   ── hidden from the library (ignore rule)
  └── Space - Deliverance.cue    ── parsed ──► 12 virtual "Audio" items in the album
-                                               path = http://127.0.0.1:8096/CueSplitter/Tracks/{id}/stream.wav?key=…
+                                               path = http://127.0.0.1:8096/CueSplitter/Tracks/{id}/stream.flac?key=…
 ```
 
 1. **Ignore rule**: an audio file referenced by a usable `.cue` sheet in the same folder is hidden from the library. You can turn this off in the plugin settings.
@@ -25,7 +25,9 @@ A Jellyfin plugin that shows albums stored as a **single audio image + `.cue` sh
    - an exact duration.
 
    It then refreshes the album and creates any missing artists.
-3. **Streaming**: the "path" of each virtual track is an internal endpoint of the plugin. That endpoint returns a WAV stream: a computed header, followed by the PCM samples of the track decoded by Jellyfin's ffmpeg from the image (`-ss` + exact sample count). Because the size is known in advance, any byte range can be served. Jellyfin's normal pipeline (direct stream, transcoding, HLS) reads from this endpoint, so clients just see a regular song.
+3. **Streaming**: the "path" of each virtual track is an internal endpoint of the plugin. Jellyfin's normal pipeline (direct stream, transcoding, HLS) reads from this endpoint, so clients just see a regular song. Two formats are available:
+   - **FLAC** (default): the first time a track is played, Jellyfin's ffmpeg extracts exactly its samples from the image (`-ss` + exact sample count) and encodes them to FLAC, in about 0.3 s for a FLAC image and 1 s for an APE image. The file is kept in a cache under Jellyfin's cache directory (default limit 2 GB, least recently played tracks removed first) and served as a regular, seekable FLAC file. The next track of the album is prepared in advance. FLAC is played directly by virtually every client and uses about half the bandwidth of WAV.
+   - **WAV**: a computed header followed by the PCM samples decoded on the fly. The size is known in advance, so any byte range can be served without a cache. Some clients can only play WAV through transcoding.
 
 The internal endpoint only answers requests coming from the server itself and carrying a secret key. The key is generated at first start and stored in the plugin configuration.
 
@@ -111,17 +113,19 @@ dotnet publish src/Jellyfin.Plugin.CueSplitter -c Release -o out
 | Setting | Default | Description |
 |---|---|---|
 | Hide the original album image | on | Only show the virtual tracks. |
+| Track format | FLAC | FLAC (cached, played directly by almost every app) or WAV (no cache). Applies after the next library scan. |
+| FLAC cache size | 2048 MB | Disk space for encoded tracks, in Jellyfin's cache directory. |
 | Internal server URL | automatic | URL the server uses to reach its own endpoint. Set it (for example `http://127.0.0.1:8096`) only if Jellyfin does not listen on the loopback interface. |
 
 Changes apply after the next library scan, or after running *Dashboard → Scheduled tasks → Synchronize CUE tracks*.
 
 ## Notes and limitations
 
-- Tracks are streamed as PCM WAV (about 1.4 Mbit/s for CD audio). On a LAN this is fine. Clients with a bitrate limit get a transcoded stream, as for any other file.
-- Media info for a virtual track reports the stream that is served (PCM WAV), not the codec of the image.
+- In FLAC mode, the first play of a track waits for its encoding (well under a second for a FLAC image, about a second for APE); later plays and seeks are served from the cache. Clients with a bitrate limit get a transcoded stream, as for any other file.
+- Media info for a virtual track reports the stream that is served (FLAC or PCM WAV), not the codec of the image. In FLAC mode, the size and bitrate shown are estimates until the track has been encoded.
 - If you edit a `.cue` file, the change is picked up at the next library scan (or by the scheduled task). Real-time folder monitoring alone does not trigger it.
 - If you change the server port, the next sync updates the tracks. Their ids, and so play counts and favorites, are kept.
-- Jellyfin reports virtual tracks as not downloadable, because no real file backs them. Some apps, including the official ones, may therefore hide their "Download" button. A download still works when an app requests it (`/Items/{id}/Download` returns the track as a `.wav` file).
+- Jellyfin reports virtual tracks as not downloadable, because no real file backs them. Some apps, including the official ones, may therefore hide their "Download" button. A download still works when an app requests it (`/Items/{id}/Download` returns the track as a tagged `.flac` file, or `.wav` in WAV mode).
 - Hiding an album image removes it from the library. Play counts and favorites recorded on the image itself are lost; they are not transferred to its tracks.
 
 ## Client compatibility
@@ -156,7 +160,7 @@ Issues are triaged by the maintainer. Fixes may be prepared by an automated assi
 ```
 src/Jellyfin.Plugin.CueSplitter/
 ├── Cue/          CUE parser, encoding detection, sheet → track plans (cached)
-├── Streaming/    ffprobe format probe, WAV header, Range parsing, ffmpeg streamer
+├── Streaming/    ffprobe format probe, FLAC track cache, WAV header, Range parsing, track server
 ├── Library/      ignore rule, synchronizer (post-scan + scheduled task), metadata provider
 ├── Api/          internal stream endpoint
 └── Configuration/

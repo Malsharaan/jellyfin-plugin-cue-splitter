@@ -78,6 +78,20 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
             _libraryManager.DeleteItem(item, new DeleteOptions { DeleteFileLocation = false }, true);
         }
 
+        // FLAC track cache (only files this plugin created, under Jellyfin's cache directory).
+        try
+        {
+            var cacheDir = System.IO.Path.Combine(ApplicationPaths.CachePath, "cuesplitter");
+            if (System.IO.Directory.Exists(cacheDir))
+            {
+                System.IO.Directory.Delete(cacheDir, true);
+            }
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+        {
+            // Best effort: Jellyfin's cache cleanup task removes leftovers eventually.
+        }
+
         base.OnUninstalling();
     }
 

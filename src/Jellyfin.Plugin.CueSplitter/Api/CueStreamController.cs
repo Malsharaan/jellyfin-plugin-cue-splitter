@@ -16,7 +16,7 @@ using Microsoft.Extensions.Logging;
 namespace Jellyfin.Plugin.CueSplitter.Api;
 
 /// <summary>
-/// Internal endpoint serving the virtual tracks as seekable WAV streams.
+/// Internal endpoint serving the virtual tracks as seekable FLAC or WAV streams.
 /// It is the "path" of every virtual track: Jellyfin's own streaming pipeline (direct stream
 /// proxy, transcoding, HLS...) reads from it, so every client gets a regular audio stream.
 /// Only the server itself may call it, with the secret stream key.
@@ -25,63 +25,51 @@ namespace Jellyfin.Plugin.CueSplitter.Api;
 [Route("CueSplitter")]
 public class CueStreamController : ControllerBase
 {
-    private readonly ILibraryManager _libraryManager;
-    private readonly CueLibraryService _cueLibrary;
-    private readonly CueTrackStreamer _streamer;
-    private readonly ILogger<CueStreamController> _logger;
+    private readonly CueTrackServer _server;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CueStreamController"/> class.
     /// </summary>
-    /// <param name="libraryManager">Library manager.</param>
-    /// <param name="cueLibrary">CUE library service.</param>
-    /// <param name="streamer">Track streamer.</param>
-    /// <param name="logger">Logger.</param>
-    public CueStreamController(ILibraryManager libraryManager, CueLibraryService cueLibrary, CueTrackStreamer streamer, ILogger<CueStreamController> logger)
+    /// <param name="server">Track server.</param>
+    public CueStreamController(CueTrackServer server)
     {
-        _libraryManager = libraryManager;
-        _cueLibrary = cueLibrary;
-        _streamer = streamer;
-        _logger = logger;
+        _server = server;
     }
 
     /// <summary>
-    /// Streams a virtual track as WAV (supports HEAD and byte ranges).
+    /// Streams a virtual track (supports HEAD and byte ranges). The extension selects the format,
+    /// so item paths written by an older version (stream.wav) keep working.
     /// </summary>
     /// <param name="itemId">The track item id.</param>
+    /// <param name="extension">"flac" or "wav".</param>
     /// <param name="key">The secret stream key.</param>
-    /// <returns>A task.</returns>
-    [HttpGet("Tracks/{itemId}/stream.wav")]
-    [HttpHead("Tracks/{itemId}/stream.wav")]
+    /// <returns>The stream.</returns>
+    [HttpGet("Tracks/{itemId}/stream.{extension}")]
+    [HttpHead("Tracks/{itemId}/stream.{extension}")]
     [AllowAnonymous]
     [ApiExplorerSettings(IgnoreApi = true)]
-    public async Task GetTrackStream([FromRoute] Guid itemId, [FromQuery] string? key)
+    public async Task<IActionResult> GetTrackStream([FromRoute] Guid itemId, [FromRoute] string extension, [FromQuery] string? key)
     {
         if (!IsLocalRequest(HttpContext) || !IsValidKey(key))
         {
-            Response.StatusCode = StatusCodes.Status403Forbidden;
-            return;
+            return StatusCode(StatusCodes.Status403Forbidden);
         }
 
-        var item = _libraryManager.GetItemById(itemId);
-        if (item is null
-            || !CueTrackItemFactory.IsCueTrack(item)
-            || !item.ProviderIds.TryGetValue(CueTrackItemFactory.CueKey, out var cuePath)
-            || !item.ProviderIds.TryGetValue(CueTrackItemFactory.TrackKey, out var trackKey))
+        TrackFormat format;
+        if (string.Equals(extension, "flac", StringComparison.OrdinalIgnoreCase))
         {
-            Response.StatusCode = StatusCodes.Status404NotFound;
-            return;
+            format = TrackFormat.Flac;
         }
-
-        var track = _cueLibrary.GetTrack(cuePath, trackKey);
-        if (track is null)
+        else if (string.Equals(extension, "wav", StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogWarning("Track {Key} of {Cue} is no longer available", trackKey, cuePath);
-            Response.StatusCode = StatusCodes.Status404NotFound;
-            return;
+            format = TrackFormat.Wav;
+        }
+        else
+        {
+            return NotFound();
         }
 
-        await CueTrackHttpResponder.WriteAsync(HttpContext, _streamer, track, null, _logger).ConfigureAwait(false);
+        return await _server.ServeAsync(HttpContext, itemId, format, download: false).ConfigureAwait(false);
     }
 
     private static bool IsLocalRequest(HttpContext context)
