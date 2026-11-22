@@ -1,13 +1,8 @@
 using System;
 using System.Threading.Tasks;
-using Jellyfin.Plugin.CueSplitter.Cue;
-using Jellyfin.Plugin.CueSplitter.Library;
 using Jellyfin.Plugin.CueSplitter.Streaming;
-using MediaBrowser.Controller.Library;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Extensions.Logging;
 
 namespace Jellyfin.Plugin.CueSplitter.Api;
 
@@ -21,24 +16,15 @@ namespace Jellyfin.Plugin.CueSplitter.Api;
 /// </summary>
 public class CueLibraryFileFilter : IAsyncActionFilter
 {
-    private readonly ILibraryManager _libraryManager;
-    private readonly CueLibraryService _cueLibrary;
-    private readonly CueTrackStreamer _streamer;
-    private readonly ILogger<CueLibraryFileFilter> _logger;
+    private readonly CueTrackServer _server;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CueLibraryFileFilter"/> class.
     /// </summary>
-    /// <param name="libraryManager">Library manager.</param>
-    /// <param name="cueLibrary">CUE library service.</param>
-    /// <param name="streamer">Track streamer.</param>
-    /// <param name="logger">Logger.</param>
-    public CueLibraryFileFilter(ILibraryManager libraryManager, CueLibraryService cueLibrary, CueTrackStreamer streamer, ILogger<CueLibraryFileFilter> logger)
+    /// <param name="server">Track server.</param>
+    public CueLibraryFileFilter(CueTrackServer server)
     {
-        _libraryManager = libraryManager;
-        _cueLibrary = cueLibrary;
-        _streamer = streamer;
-        _logger = logger;
+        _server = server;
     }
 
     /// <inheritdoc />
@@ -46,33 +32,14 @@ public class CueLibraryFileFilter : IAsyncActionFilter
     {
         if (!IsOriginalFileAction(context, out var isDownload)
             || !context.ActionArguments.TryGetValue("itemId", out var idArgument)
-            || idArgument is not Guid itemId)
+            || idArgument is not Guid itemId
+            || !_server.IsCueTrack(itemId))
         {
             await next().ConfigureAwait(false);
             return;
         }
 
-        var item = _libraryManager.GetItemById(itemId);
-        if (item is null
-            || !CueTrackItemFactory.IsCueTrack(item)
-            || !item.ProviderIds.TryGetValue(CueTrackItemFactory.CueKey, out var cuePath)
-            || !item.ProviderIds.TryGetValue(CueTrackItemFactory.TrackKey, out var trackKey))
-        {
-            await next().ConfigureAwait(false);
-            return;
-        }
-
-        var track = _cueLibrary.GetTrack(cuePath, trackKey);
-        if (track is null)
-        {
-            _logger.LogWarning("Track {Key} of {Cue} is no longer available", trackKey, cuePath);
-            context.Result = new NotFoundResult();
-            return;
-        }
-
-        var fileName = isDownload ? CueTrackHttpResponder.GetDownloadFileName(track) : null;
-        await CueTrackHttpResponder.WriteAsync(context.HttpContext, _streamer, track, fileName, _logger).ConfigureAwait(false);
-        context.Result = new EmptyResult();
+        context.Result = await _server.ServeAsync(context.HttpContext, itemId, TrackFormats.Current(), isDownload).ConfigureAwait(false);
     }
 
     /// <summary>

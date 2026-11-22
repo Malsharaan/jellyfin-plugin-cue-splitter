@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Data.Enums;
 using Jellyfin.Plugin.CueSplitter.Cue;
+using Jellyfin.Plugin.CueSplitter.Streaming;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Entities;
 using MediaBrowser.Controller.Library;
@@ -95,6 +96,7 @@ public class CueTrackSynchronizer
     {
         var streamKey = Plugin.Instance?.Configuration.StreamKey ?? string.Empty;
         var baseUrl = GetInternalBaseUrl();
+        var trackFormat = TrackFormats.Current();
 
         var roots = _libraryManager.GetVirtualFolders()
             .Where(f => f.CollectionType == CollectionTypeOptions.music)
@@ -153,7 +155,7 @@ public class CueTrackSynchronizer
                 {
                     var id = CueTrackItemFactory.GetItemId(_libraryManager, album.CuePath, track.Key);
                     desired.Add(id);
-                    var url = CueTrackItemFactory.BuildStreamUrl(baseUrl, id, streamKey);
+                    var url = CueTrackItemFactory.BuildStreamUrl(baseUrl, id, streamKey, trackFormat);
 
                     if (existing.TryGetValue(id, out var item))
                     {
@@ -163,10 +165,10 @@ public class CueTrackSynchronizer
                             item.SetParent(parent);
                         }
 
-                        if (CueTrackItemFactory.Apply(item, album, track, disc, url) || moved)
+                        if (CueTrackItemFactory.Apply(item, album, track, disc, url, trackFormat) || moved)
                         {
                             await _libraryManager.UpdateItemAsync(item, parent, ItemUpdateType.MetadataEdit, cancellationToken).ConfigureAwait(false);
-                            _mediaStreamRepository.SaveMediaStreams(item.Id, CueTrackItemFactory.BuildMediaStreams(track.Format), cancellationToken);
+                            _mediaStreamRepository.SaveMediaStreams(item.Id, CueTrackItemFactory.BuildMediaStreams(track.Format, trackFormat), cancellationToken);
                             changedParents[parent.Id] = parent;
                             updated++;
                         }
@@ -174,7 +176,7 @@ public class CueTrackSynchronizer
                     else
                     {
                         item = new AudioItem { Id = id };
-                        CueTrackItemFactory.Apply(item, album, track, disc, url);
+                        CueTrackItemFactory.Apply(item, album, track, disc, url, trackFormat);
                         item.SetParent(parent);
                         toCreate.Add((item, track));
                     }
@@ -191,7 +193,7 @@ public class CueTrackSynchronizer
                 _libraryManager.CreateItems(toCreate.Select(t => (BaseItem)t.Item).ToList(), parent, cancellationToken);
                 foreach (var (item, track) in toCreate)
                 {
-                    _mediaStreamRepository.SaveMediaStreams(item.Id, CueTrackItemFactory.BuildMediaStreams(track.Format), cancellationToken);
+                    _mediaStreamRepository.SaveMediaStreams(item.Id, CueTrackItemFactory.BuildMediaStreams(track.Format, trackFormat), cancellationToken);
                 }
 
                 created += toCreate.Count;

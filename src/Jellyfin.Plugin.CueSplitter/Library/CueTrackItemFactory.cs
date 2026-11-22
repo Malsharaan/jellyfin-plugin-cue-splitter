@@ -49,13 +49,20 @@ public static class CueTrackItemFactory
     /// <param name="baseUrl">Server base URL reachable from the server itself.</param>
     /// <param name="itemId">Item id.</param>
     /// <param name="streamKey">Secret stream key.</param>
+    /// <param name="trackFormat">Format served.</param>
     /// <returns>The URL.</returns>
-    public static string BuildStreamUrl(string baseUrl, Guid itemId, string streamKey)
+    public static string BuildStreamUrl(string baseUrl, Guid itemId, string streamKey, TrackFormat trackFormat)
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"{baseUrl.TrimEnd('/')}/CueSplitter/Tracks/{itemId:N}/stream.wav?key={Uri.EscapeDataString(streamKey)}");
+            $"{baseUrl.TrimEnd('/')}/CueSplitter/Tracks/{itemId:N}/stream.{trackFormat.Container()}?key={Uri.EscapeDataString(streamKey)}");
     }
+
+    /// <summary>
+    /// Typical size of a FLAC track relative to the same PCM audio (used for size and bitrate
+    /// estimates, the exact size is only known once the track is encoded).
+    /// </summary>
+    internal const double FlacRatio = 0.6;
 
     /// <summary>
     /// Gets a value indicating whether an item is a virtual CUE track.
@@ -104,8 +111,9 @@ public static class CueTrackItemFactory
     /// <param name="track">The track.</param>
     /// <param name="discNumber">Disc number, if any.</param>
     /// <param name="streamUrl">Internal stream URL (item path).</param>
+    /// <param name="trackFormat">Format served.</param>
     /// <returns>True if something changed.</returns>
-    public static bool Apply(AudioItem item, CueAlbum album, CueTrackPlan track, int? discNumber, string streamUrl)
+    public static bool Apply(AudioItem item, CueAlbum album, CueTrackPlan track, int? discNumber, string streamUrl, TrackFormat trackFormat)
     {
         var sheet = album.Sheet;
         var format = track.Format;
@@ -117,10 +125,11 @@ public static class CueTrackItemFactory
         var albumArtists = string.IsNullOrWhiteSpace(albumArtist) ? Array.Empty<string>() : new[] { albumArtist! };
         var genres = SplitGenres(sheet.Genre);
         var year = ParseYear(sheet.Date);
-        var header = WavHeader.GetHeaderLength(format);
-        var size = header + (track.SampleCount * format.BlockAlign);
+        var pcmSize = WavHeader.GetHeaderLength(format) + (track.SampleCount * format.BlockAlign);
+        var ratio = trackFormat == TrackFormat.Flac ? FlacRatio : 1.0;
+        var size = (long)(pcmSize * ratio);
         var runtime = format.SamplesToTicks(track.SampleCount);
-        var bitrate = (int)Math.Min(int.MaxValue, format.ByteRate * 8);
+        var bitrate = (int)Math.Min(int.MaxValue, format.ByteRate * 8 * ratio);
 
         var signature = string.Join(
             '\u001f',
@@ -172,7 +181,7 @@ public static class CueTrackItemFactory
             item.RunTimeTicks = runtime;
         }
 
-        item.Container = "wav";
+        item.Container = trackFormat.Container();
         item.Size = size;
         item.TotalBitrate = bitrate;
         item.IsInMixedFolder = false;
@@ -198,8 +207,9 @@ public static class CueTrackItemFactory
     /// Builds the media stream description of a track (what the stream endpoint serves).
     /// </summary>
     /// <param name="format">The PCM format.</param>
+    /// <param name="trackFormat">Format served.</param>
     /// <returns>The media streams.</returns>
-    public static IReadOnlyList<MediaStream> BuildMediaStreams(AudioFormat format)
+    public static IReadOnlyList<MediaStream> BuildMediaStreams(AudioFormat format, TrackFormat trackFormat)
     {
         return new[]
         {
@@ -207,11 +217,11 @@ public static class CueTrackItemFactory
             {
                 Type = MediaStreamType.Audio,
                 Index = 0,
-                Codec = format.PcmCodec,
+                Codec = trackFormat == TrackFormat.Flac ? "flac" : format.PcmCodec,
                 Channels = format.Channels,
                 SampleRate = format.SampleRate,
                 BitDepth = format.BitsPerSample,
-                BitRate = (int)Math.Min(int.MaxValue, format.ByteRate * 8),
+                BitRate = (int)Math.Min(int.MaxValue, format.ByteRate * 8 * (trackFormat == TrackFormat.Flac ? FlacRatio : 1.0)),
                 ChannelLayout = format.Channels switch
                 {
                     1 => "mono",

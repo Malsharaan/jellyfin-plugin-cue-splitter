@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using Jellyfin.Plugin.CueSplitter.Cue;
+using Jellyfin.Plugin.CueSplitter.Streaming;
 using MediaBrowser.Controller.Library;
 using MediaBrowser.Controller.Persistence;
 using MediaBrowser.Controller.Providers;
@@ -53,7 +54,8 @@ public class CueTrackMetadataProvider : ICustomMetadataProvider<AudioItem>
 
         var folderAlbums = _cueLibrary.GetAlbumsInDirectory(System.IO.Path.GetDirectoryName(cuePath)!);
         var disc = CueTrackItemFactory.GetDiscNumber(album, folderAlbums);
-        var url = CueTrackItemFactory.BuildStreamUrl(_synchronizer.GetInternalBaseUrl(), item.Id, Plugin.Instance?.Configuration.StreamKey ?? string.Empty);
+        var trackFormat = TrackFormats.Current();
+        var url = CueTrackItemFactory.BuildStreamUrl(_synchronizer.GetInternalBaseUrl(), item.Id, Plugin.Instance?.Configuration.StreamKey ?? string.Empty, trackFormat);
 
         // Force re-application on an explicit refresh: the provider may have been preceded by a metadata reset.
         if (options.ReplaceAllMetadata)
@@ -61,8 +63,8 @@ public class CueTrackMetadataProvider : ICustomMetadataProvider<AudioItem>
             item.ProviderIds.Remove(CueTrackItemFactory.SignatureKey);
         }
 
-        var changed = CueTrackItemFactory.Apply(item, album, track, disc, url);
-        _mediaStreamRepository.SaveMediaStreams(item.Id, CueTrackItemFactory.BuildMediaStreams(track.Format), cancellationToken);
+        var changed = CueTrackItemFactory.Apply(item, album, track, disc, url, trackFormat);
+        _mediaStreamRepository.SaveMediaStreams(item.Id, CueTrackItemFactory.BuildMediaStreams(track.Format, trackFormat), cancellationToken);
         return Task.FromResult(changed ? ItemUpdateType.MetadataEdit : ItemUpdateType.None);
     }
 }

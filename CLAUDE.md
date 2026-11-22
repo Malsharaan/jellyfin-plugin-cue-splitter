@@ -1,7 +1,7 @@
 # CUE Splitter — notes for Claude
 
 Jellyfin 12.4 plugin (.NET 10) exposing the tracks of single-file album images
-described by `.cue` sheets as virtual library items, streamed on the fly as WAV.
+described by `.cue` sheets as virtual library items, served as cached FLAC (default) or on-the-fly WAV.
 Read `README.md` ("How it works") before changing behaviour.
 
 ## Rules
@@ -22,7 +22,7 @@ Read `README.md` ("How it works") before changing behaviour.
 ## Layout
 
 - `src/Jellyfin.Plugin.CueSplitter/Cue/` — CUE parsing (encoding detection), sheet → track plans.
-- `src/Jellyfin.Plugin.CueSplitter/Streaming/` — ffprobe format, WAV header, Range parsing, ffmpeg streamer.
+- `src/Jellyfin.Plugin.CueSplitter/Streaming/` — ffprobe format, FLAC track cache, WAV header, Range parsing, track server.
 - `src/Jellyfin.Plugin.CueSplitter/Library/` — ignore rule, synchronizer, metadata provider, scheduled task.
 - `src/Jellyfin.Plugin.CueSplitter/Api/` — internal stream endpoint.
 - `tests/` — xUnit tests (`dotnet test`).
